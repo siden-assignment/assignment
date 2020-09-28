@@ -44,6 +44,12 @@ type Store interface {
 
 The interface itself is quite simple, and takes inspiration from the standard `io.Reader` and `io.Writer` interfaces that are used as parameters. However the `Store` interface is designed to handle both context canceling, as we are in a HTTP context, but as handling multiple unique files by requiring a `prefix` argument. The store should return a `store.ErrReading` or `store.ErrWriting` in the event there is already a live read/write to the store at a given prefix. This should ensure that we don't need to worry about parallel access to the same file, however to be clear it would be possible for BadgerDB to handle this type of access pattern. That being said it was just simpler to not allow it for this kind of exercise, especially seeing as the requirements did not specify that parallel access needed to be maintained.
 
+### Caveats
+
+This solution comes with two caveats:
+- First is that the returned response is always in lexigraphical order, and disregards the input ordering of the file. This is due to how BadgerDB stores data on disk, and specifically how it handles key duplication.
+- Second is that there is no checking for key collisions between prefixes. I.e. if you set a prefix of say `woot` those keys will end up looking like `woot:line-in-file` you could in theory conflict with that depending on your structure and the values in the file. This would have taken more significant work to fully vet out, and I assumed it was out of scope for the exercise.
+
 ### BadgerDB
 
 Using the above interface I tried a few solutions, including a standard file based Store using a combination of a [Bloom Filter](https://github.com/patrickmn/go-bloom) with a file search to verify false positives. However I deemed it unneeded, and also rather slow especially on false positive verification. The choice of BadgerDB was due to a handful of reasons:
